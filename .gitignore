@@ -1,0 +1,90 @@
+# 依赖目录
+node_modules/
+dist/
+build/
+.out/
+.next/
+.vite/
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# 日志
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 运行时数据
+.data/
+*.pid
+*.seed
+*.pid.lock
+
+# 缓存
+.cache/
+.parcel-cache/
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# 测试覆盖率
+coverage/
+.nyc_output
+
+# 构建产物
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 临时文件
+tmp/
+temp/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker相关
+*.tar.gz
+*.dockerignore
+
+# 密钥文件
+*.pem
+*.key
+*.crt
+
+# 文档
+!docs/
+*.pdf
+*.doc
+*.docx
+
+# 特定项目文件
+server/.env
+client/.env

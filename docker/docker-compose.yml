@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: game-forum-postgres
+    environment:
+      POSTGRES_DB: game_forum
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - game-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d game_forum"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: game-forum-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - game-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # 后端API服务
+  api-server:
+    build:
+      context: ../server
+      dockerfile: ../docker/node/Dockerfile
+    container_name: game-forum-api
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: "postgresql://admin:password@postgres:5432/game_forum"
+      REDIS_URL: "redis://redis:6379"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../server:/app
+      - /app/node_modules
+    networks:
+      - game-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # 前端应用
+  frontend:
+    build:
+      context: ../client
+      dockerfile: ../docker/nginx/Dockerfile
+    container_name: game-forum-frontend
+    ports:
+      - "80:80"
+    networks:
+      - game-network
+    depends_on:
+      - api-server
+    restart: unless-stopped
+
+  # 监控面板
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: game-forum-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gameforum.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - game-network
+    restart: unless-stopped
+
+  # Redis管理工具
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: game-forum-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - game-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+
+networks:
+  game-network:
+    driver: bridge
