@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>NoSuchKey</Code>
+  <Message>The specified key does not exist.</Message>
+  <RequestId>695E44A6B37E813739FFF1B5</RequestId>
+  <HostId>npmmirror.oss-cn-shanghai.aliyuncs.com</HostId>
+  <Key>binaries/node/v20.20.0/node-v20.20.0-x64.msi</Key>
+  <EC>0026-00000001</EC>
+  <RecommendDoc>https://api.aliyun.com/troubleshoot?q=0026-00000001</RecommendDoc>
+</Error>

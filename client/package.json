@@ -17,9 +17,13 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.13.2",
+    "date-fns": "^4.1.0",
+    "dompurify": "^3.3.1",
     "element-plus": "^2.13.0",
+    "marked": "^17.0.1",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
+    "socket.io-client": "^4.8.3",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4"
   },
@@ -35,7 +39,7 @@
     "jiti": "^2.6.1",
     "npm-run-all2": "^8.0.4",
     "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^3.4.19",
     "typescript": "~5.9.3",
     "vite": "^7.3.0",
     "vite-plugin-vue-devtools": "^8.0.5",
