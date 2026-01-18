@@ -4,7 +4,7 @@ import type { User } from './user'
 export interface ApiResponse<T = any> {
   success?: boolean
   data?: T
-  error?: string
+  error?: string | null
   message?: string
   pagination?: {
     page: number
