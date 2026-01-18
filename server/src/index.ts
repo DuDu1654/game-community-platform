@@ -5,6 +5,10 @@ import dotenv from 'dotenv';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
+// 导入配置
+import { config } from './config/env';
+import { connectDatabase } from './config/database';
+
 // 导入路由
 import authRoutes from './routes/auth';
 import postRoutes from './routes/posts';
@@ -12,6 +16,9 @@ import newsRoutes from './routes/news';
 import commentRoutes from './routes/comments';
 import chatRoutes from './routes/chat';
 import statsRoutes from './routes/stats';
+// 确保你的代码中有这部分
+import socketService from './services/socket.service'
+
 
 // 加载环境变量
 dotenv.config();
@@ -21,12 +28,18 @@ const PORT = process.env.PORT || 3000;
 
 // 创建HTTP服务器和Socket.IO实例
 const server = http.createServer(app);
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true,
-  },
-});
+// const io = new SocketIOServer(server, {
+//   cors: {
+//     origin: process.env.CLIENT_URL || 'http://localhost:5173',
+//     credentials: true,
+//   },
+// });
+
+
+socketService.initialize(server)  // 确保这行存在
+
+
+
 
 // 中间件
 app.use(cors({
@@ -441,52 +454,52 @@ app.get('/api/users', (req, res) => {
 });
 
 // Socket.IO连接处理
-io.on('connection', (socket) => {
-  console.log('用户已连接:', socket.id);
+// io.on('connection', (socket) => {
+//   console.log('用户已连接:', socket.id);
   
-  // 加入聊天室
-  socket.on('join-room', (roomId: string) => {
-    socket.join(roomId);
-    console.log(`用户 ${socket.id} 加入了房间 ${roomId}`);
+//   // 加入聊天室
+//   socket.on('join-room', (roomId: string) => {
+//     socket.join(roomId);
+//     console.log(`用户 ${socket.id} 加入了房间 ${roomId}`);
     
-    // 通知房间内的其他用户
-    socket.to(roomId).emit('user-joined', {
-      userId: socket.id,
-      timestamp: new Date().toISOString(),
-    });
-  });
+//     // 通知房间内的其他用户
+//     socket.to(roomId).emit('user-joined', {
+//       userId: socket.id,
+//       timestamp: new Date().toISOString(),
+//     });
+//   });
   
-  // 离开聊天室
-  socket.on('leave-room', (roomId: string) => {
-    socket.leave(roomId);
-    console.log(`用户 ${socket.id} 离开了房间 ${roomId}`);
-  });
+//   // 离开聊天室
+//   socket.on('leave-room', (roomId: string) => {
+//     socket.leave(roomId);
+//     console.log(`用户 ${socket.id} 离开了房间 ${roomId}`);
+//   });
   
-  // 发送消息
-  socket.on('send-message', (data: { roomId: string; message: any }) => {
-    const { roomId, message } = data;
+//   // 发送消息
+//   socket.on('send-message', (data: { roomId: string; message: any }) => {
+//     const { roomId, message } = data;
     
-    // 广播消息到房间
-    io.to(roomId).emit('new-message', {
-      ...message,
-      timestamp: new Date().toISOString(),
-      socketId: socket.id,
-    });
+//     // 广播消息到房间
+//     io.to(roomId).emit('new-message', {
+//       ...message,
+//       timestamp: new Date().toISOString(),
+//       socketId: socket.id,
+//     });
     
-    console.log(`消息发送到房间 ${roomId}:`, message.content?.substring(0, 50));
-  });
+//     console.log(`消息发送到房间 ${roomId}:`, message.content?.substring(0, 50));
+//   });
   
-  // 用户输入状态
-  socket.on('typing', (data: { roomId: string; userId: string; isTyping: boolean }) => {
-    const { roomId, userId, isTyping } = data;
-    socket.to(roomId).emit('user-typing', { userId, isTyping });
-  });
+//   // 用户输入状态
+//   socket.on('typing', (data: { roomId: string; userId: string; isTyping: boolean }) => {
+//     const { roomId, userId, isTyping } = data;
+//     socket.to(roomId).emit('user-typing', { userId, isTyping });
+//   });
   
-  // 断开连接
-  socket.on('disconnect', () => {
-    console.log('用户已断开连接:', socket.id);
-  });
-});
+//   // 断开连接
+//   socket.on('disconnect', () => {
+//     console.log('用户已断开连接:', socket.id);
+//   });
+// });
 
 // 10. 404处理（增强版）
 app.use('*', (req, res) => {
@@ -616,4 +629,4 @@ process.on('SIGTERM', () => {
   });
 });
 
-export { app, server, io };
+export { app, server};

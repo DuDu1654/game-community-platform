@@ -44,6 +44,7 @@ export interface Post {
     comments: number
     likes: number
   }
+
 }
 
 export interface Comment {
@@ -60,7 +61,17 @@ export interface Comment {
   replies?: Comment[]
   _count?: {
     replies: number
+    likes: number
+
   }
+ // 添加可选的后端额外字段
+  authorId?: string
+  isDeleted?: boolean
+  
+  
+  // 用于乐观更新的临时属性
+  isTemp?: boolean
+
 }
 
 export interface PostQueryParams {
@@ -71,3 +82,22 @@ export interface PostQueryParams {
   authorId?: string
   search?: string
 }
+
+// 添加创建评论的请求类型
+export interface CreateCommentRequest {
+  postId: string
+  content: string
+  parentId?: string
+  images?: string[]
+}
+
+// 添加评论响应类型
+export interface CommentResponse {
+  success: boolean
+  data?: {
+    comment: Comment
+  }
+  error?: string
+  message?: string
+}
+

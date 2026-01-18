@@ -7,7 +7,7 @@ export interface SendMessageInput {
   content: string
   roomId: string
   authorId: string
-  images?: string  // 改为 string，不是 string[]
+  images?: string | null  // 修改为 string | null
 }
 
 export interface ChatRoom {
@@ -26,7 +26,7 @@ class ChatService {
         content: data.content,
         roomId: data.roomId,
         authorId: data.authorId,
-        images: data.images || null,  // 改为 null，不是 []
+        images: data.images ? JSON.stringify(data.images) : null,  // 将数组转为JSON字符串
       },
       include: {
         author: {
@@ -63,8 +63,14 @@ class ChatService {
       prisma.message.count({ where: { roomId } }),
     ])
 
+    // 处理图片字段（JSON字符串转数组）
+    const processedMessages = messages.map(message => ({
+      ...message,
+      images: message.images ? JSON.parse(message.images) : [],
+    }))
+
     // 按时间正序返回
-    const sortedMessages = messages.reverse()
+    const sortedMessages = processedMessages.reverse()
 
     return {
       messages: sortedMessages,

@@ -21,10 +21,25 @@ const chatService = {
     return response
   },
 
-  // 发送消息
+  // 发送消息 - 修复这里
   async sendMessage(roomId: string, data: { content: string; images?: string[] }): Promise<ApiResponse> {
-    const response = await api.post(`/chat/rooms/${roomId}/messages`, data)
-    return response
+    try {
+      // 使用统一的 api 实例，而不是 axios
+      const response = await api.post(`/chat/rooms/${roomId}/messages`, data)
+      
+      console.log('✅ 发送消息API响应:', response.data)
+      
+      return {
+        success: true,
+        data: response.data,
+      }
+    } catch (error: any) {
+      console.error('❌ 发送消息失败:', error.response?.data || error.message)
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message,
+      }
+    }
   },
 
   // 创建聊天室

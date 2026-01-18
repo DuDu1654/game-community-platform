@@ -81,18 +81,29 @@
             </button>
             
             <!-- 用户头像下拉菜单 -->
-            <div class="relative" @click="toggleDropdown">
-              <button class="flex items-center space-x-2 focus:outline-none">
-                <img 
-                  :src="user?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + user?.username" 
-                  :alt="user?.username"
-                  class="w-8 h-8 rounded-full border-2 border-primary-500"
-                />
-                <span class="text-sm font-medium text-gray-700 hidden md:block">
-                  {{ user?.username }}
-                </span>
-                <i class="el-icon-arrow-down text-gray-500"></i>
-              </button>
+  <div class="relative" ref="userMenuRef">
+    <button 
+      @click.stop="toggleDropdown"
+      class="flex items-center space-x-2 focus:outline-none hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+    >
+      <img 
+        :src="user?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + user?.username" 
+        :alt="user?.username"
+        class="w-8 h-8 rounded-full border-2 border-primary-500"
+      />
+      <span class="text-sm font-medium text-gray-700 hidden md:block">
+        {{ user?.username }}
+      </span>
+      <i 
+        :class="[
+          'el-icon-arrow-down',
+          'text-gray-500',
+          'transition-transform',
+          'duration-200',
+          dropdownOpen ? 'transform rotate-180' : ''
+        ]"
+      ></i>
+    </button>
               
               <!-- 下拉菜单 -->
               <div 

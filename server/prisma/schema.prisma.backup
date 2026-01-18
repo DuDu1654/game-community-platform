@@ -23,7 +23,7 @@ model User {
   messages  Message[]
   posts     Post[]
 
-  @@map("user")
+  @@map("users")
 }
 
 model Post {
@@ -69,7 +69,9 @@ model Comment {
   parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies    Comment[] @relation("CommentReplies")
 
-  
+   author     User      @relation(fields: [authorId], references: [id])
+  post       Post      @relation(fields: [postId], references: [id])
+  likes      Like[]
 
   @@index([postId])
   @@index([authorId])
@@ -103,27 +105,11 @@ model Message {
   createdAt DateTime @default(now())
   authorId  String
   author    User     @relation(fields: [authorId], references: [id])
-   room      Room?    @relation(fields: [roomId], references: [id])
-
-   
 
   @@index([roomId])
   @@index([createdAt])
   @@index([authorId], map: "messages_authorId_fkey")
   @@map("messages")
-}
-
-
-model Room {
-  id          String    @id @default(cuid())
-  name        String    @db.VarChar(255)
-  description String?   @db.Text
-  createdBy   String?   @map("created_by")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  messages    Message[]
-  
-  @@map("rooms")
 }
 
 model News {

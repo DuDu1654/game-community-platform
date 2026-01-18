@@ -34,9 +34,10 @@ class CommentService {
           authorId: data.authorId,
           parentId: data.parentId,
           // 修改第31行
-images: (data.images && Array.isArray(data.images) && data.images.length > 0) 
-  ? data.images 
-  : undefined,  // ✅ 使用 undefined
+// 修改后（正确）：
+images: (data.images && Array.isArray(data.images) && data.images.length > 0)
+  ? JSON.stringify(data.images)  // ✅ 将数组转为 JSON 字符串
+  : undefined,  // ✅ 使用 null 而不是 undefined
         },
         include: {
           author: {

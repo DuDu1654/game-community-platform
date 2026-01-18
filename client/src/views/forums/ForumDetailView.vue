@@ -494,7 +494,7 @@ const isCommentAuthor = (authorId?: string) => {
   return authStore.user?.id === authorId
 }
 
-// ✅ 加载帖子
+/// ✅ 加载帖子
 const loadPost = async () => {
   if (!postId.value) {
     console.error('没有帖子ID')
@@ -506,6 +506,7 @@ const loadPost = async () => {
     
     // 清空当前帖子
     postStore.currentPost = null
+    postStore.currentComments = []
     
     // 调用store的方法获取帖子
     await postStore.fetchPostById(postId.value, true)  // true表示增加浏览量
@@ -517,22 +518,27 @@ const loadPost = async () => {
       error: postStore.error
     })
     
-    // 修改第500-515行附近：
-if (postStore.currentPost) {
-  console.log('✅ 帖子加载成功，标题:', (postStore.currentPost as any).title)
-  
-  // 如果有评论数据，设置到currentComments
-  if ((postStore.currentPost as any)?.comments) {
-    postStore.currentComments = (postStore.currentPost as any).comments
-  }
-  
-  // 检查点赞状态
-  if (authStore.user && (postStore.currentPost as any)?.likes) {
-    const userLike = (postStore.currentPost as any).likes.find(
-      (like: any) => like.userId === authStore.user?.id
-    )
-    isLiked.value = !!userLike
-    }
+    if (postStore.currentPost) {
+      console.log('✅ 帖子加载成功，标题:', (postStore.currentPost as any).title)
+      
+      // 如果有评论数据，设置到currentComments
+      if ((postStore.currentPost as any)?.comments) {
+        const comments = (postStore.currentPost as any).comments
+        console.log('📊 原始评论数据:', comments)
+        
+        // 关键：构建评论树
+        const commentTree = buildCommentTree(comments)
+        postStore.currentComments = commentTree
+        console.log('🌳 构建的评论树:', commentTree)
+      }
+      
+      // 检查点赞状态
+      if (authStore.user && (postStore.currentPost as any)?.likes) {
+        const userLike = (postStore.currentPost as any).likes.find(
+          (like: any) => like.userId === authStore.user?.id
+        )
+        isLiked.value = !!userLike
+      }
     } else {
       console.error('❌ 帖子加载失败，currentPost为空')
       if (postStore.error) {
@@ -542,6 +548,108 @@ if (postStore.currentPost) {
   } catch (error) {
     console.error('加载帖子异常:', error)
   }
+}
+
+
+
+// 构建评论树结构的函数
+const buildCommentTree = (comments: any[] = []): any[] => {
+  if (!comments || !Array.isArray(comments)) {
+    console.warn('评论数据为空或不是数组')
+    return []
+  }
+  
+  console.log('🌳 开始构建评论树，评论数量:', comments.length)
+  console.log('🌳 原始评论数据示例:', comments.slice(0, 3))
+  
+  const commentMap = new Map()
+  const rootComments: any[] = []
+  
+  // 1. 创建映射
+  comments.forEach((comment) => {
+    // 确保每个评论都有replies数组
+    if (!comment.replies) {
+      comment.replies = []
+    }
+    
+    // 确保有_count对象
+    if (!comment._count) {
+      comment._count = { replies: 0, likes: 0 }
+    }
+    
+    // 设置初始的回复计数
+    comment._count.replies = comment.replies?.length || 0
+    
+    commentMap.set(comment.id, comment)
+    
+    console.log('🔹 处理评论:', {
+      id: comment.id,
+      parentId: comment.parentId,
+      isReply: comment.isReply,
+      content: comment.content?.substring(0, 30) + '...'
+    })
+  })
+  
+  // 2. 构建树结构
+  comments.forEach((comment) => {
+    if (comment.parentId && commentMap.has(comment.parentId)) {
+      // 这是回复
+      const parent = commentMap.get(comment.parentId)
+      
+      // 确保父评论有replies数组
+      if (!parent.replies) {
+        parent.replies = []
+      }
+      
+      // 避免重复添加
+      const existingIndex = parent.replies.findIndex((r: any) => r.id === comment.id)
+      if (existingIndex === -1) {
+        parent.replies.push(comment)
+        
+        // 更新回复计数
+        if (parent._count) {
+          parent._count.replies = parent.replies.length
+        } else {
+          parent._count = { replies: parent.replies.length, likes: parent.likes?.length || 0 }
+        }
+        
+        console.log('↪️ 将评论添加到父评论:', {
+          '子评论ID': comment.id,
+          '父评论ID': parent.id,
+          '父评论现有回复数': parent.replies.length
+        })
+      } else {
+        console.log('⏭️ 评论已存在，跳过:', comment.id)
+      }
+    } else {
+      // 这是一级评论
+      const existingIndex = rootComments.findIndex((c: any) => c.id === comment.id)
+      if (existingIndex === -1) {
+        rootComments.push(comment)
+        console.log('↪️ 添加为一级评论:', comment.id)
+      }
+    }
+  })
+  
+  // 3. 验证树结构
+  console.log('🌳 评论树构建完成:')
+  console.log('🌳 总评论数:', comments.length)
+  console.log('🌳 一级评论数:', rootComments.length)
+  console.log('🌳 所有评论:')
+  
+  const printCommentTree = (comments: any[], level = 0) => {
+    const indent = '  '.repeat(level)
+    comments.forEach(comment => {
+      console.log(`${indent}├─ ${comment.id}: ${comment.content?.substring(0, 30)}... (parent: ${comment.parentId || 'none'}, replies: ${comment.replies?.length || 0})`)
+      if (comment.replies && comment.replies.length > 0) {
+        printCommentTree(comment.replies, level + 1)
+      }
+    })
+  }
+  
+  printCommentTree(rootComments)
+  
+  return rootComments
 }
 
 // 加载评论
@@ -998,23 +1106,285 @@ const cancelReply = () => {
 }
 
 // 提交回复
+// 在 ForumDetailView.vue 中修改 submitReply 函数
+// 提交回复 - 修复版本
+// 提交回复 - 修复版本
 const submitReply = async (parentId: string) => {
-  if (!replyContent.value.trim()) return
+  console.log('🎯 开始提交回复...')
+  console.log('父评论ID:', parentId)
+  console.log('回复内容:', replyContent.value)
+  console.log('当前帖子ID:', postId.value)
+  
+  if (!replyContent.value.trim()) {
+    alert('回复内容不能为空')
+    return
+  }
+  
+  if (!authStore.isAuthenticated) {
+    alert('请先登录')
+    router.push('/login')
+    return
+  }
+  
+  if (!authStore.user?.id) {
+    alert('用户信息不完整')
+    return
+  }
+  
+  const token = localStorage.getItem('token')
+  if (!token) {
+    alert('请先登录')
+    return
+  }
   
   try {
-    // 这里应该调用创建回复的API
-    console.log('创建回复:', parentId, replyContent.value)
-    // await postStore.createComment(postId.value, { 
-    //   content: replyContent.value, 
-    //   parentId 
-    // })
+    // 1. 找到父评论
+    const parentComment = findCommentRecursive(postStore.currentComments, parentId)
+    if (!parentComment) {
+      throw new Error('找不到父评论')
+    }
     
+    console.log('🔍 找到父评论:', {
+      id: parentComment.id,
+      content: parentComment.content.substring(0, 50) + '...',
+      是否有replies: !!parentComment.replies,
+      现有回复数: parentComment.replies?.length || 0
+    })
+    
+    // 2. 确保数据结构完整
+    if (!parentComment.replies) {
+      parentComment.replies = []
+    }
+    if (!parentComment._count) {
+      parentComment._count = { replies: 0, likes: 0 }
+    }
+    
+    // 3. 创建临时回复对象
+    const tempReply = {
+      id: `temp_reply_${Date.now()}`,
+      content: replyContent.value.trim(),
+      author: {
+        id: authStore.user.id,
+        username: authStore.user.username,
+        avatar: authStore.user.avatar
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      parentId: parentId,
+      isReply: true,
+      likeCount: 0,
+      replies: [],
+      _count: {
+        likes: 0,
+        replies: 0
+      }
+    }
+    
+    console.log('📝 临时回复对象:', {
+      id: tempReply.id,
+      parentId: tempReply.parentId,
+      isReply: tempReply.isReply
+    })
+    
+    // 4. 添加临时回复到父评论
+    parentComment.replies.unshift(tempReply as Comment)
+    parentComment._count.replies = (parentComment._count.replies || 0) + 1
+    
+    console.log('✅ 临时回复已添加到父评论，当前回复数:', parentComment._count.replies)
+    
+    // 5. 立即清空回复框
+    const replyContentBackup = replyContent.value
     replyContent.value = ''
     showReplyTo.value = null
-  } catch (error) {
-    console.error('创建回复失败:', error)
+    
+    // 6. 调用API创建回复
+    console.log('📤 调用API创建回复...')
+    const response = await fetch('http://localhost:3000/api/comments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        postId: postId.value,
+        content: replyContentBackup.trim(),  // 使用备份的内容
+        parentId: parentId,
+        isReply: true
+      })
+    })
+    
+    console.log('📡 API响应状态:', response.status)
+    console.log('📡 API响应URL:', response.url)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      console.error('❌ API调用失败:', errorData)
+      
+      // 移除临时回复
+      if (parentComment && parentComment.replies) {
+        const index = parentComment.replies.findIndex((r: any) => r.id === tempReply.id)
+        if (index > -1) {
+          parentComment.replies.splice(index, 1)
+          if (parentComment._count) {
+            parentComment._count.replies = Math.max(0, (parentComment._count.replies || 1) - 1)
+          }
+        }
+      }
+      
+      alert(errorData.error || errorData.message || '回复失败')
+      return
+    }
+    
+    const data = await response.json()
+    console.log('✅ API返回数据:', JSON.stringify(data, null, 2))
+    
+    // 7. 解析API返回的评论
+    let newComment = null
+    if (data.success && data.data) {
+      newComment = data.data
+    } else if (data.comment) {
+      newComment = data.comment
+    } else {
+      console.error('无法解析返回的评论数据:', data)
+      throw new Error('无法解析返回的评论数据')
+    }
+    
+    // 8. 验证返回的评论数据
+    if (!newComment) {
+      throw new Error('返回的评论数据为空')
+    }
+    
+    // 9. 关键：确保返回的评论包含正确的层级信息
+    if (!newComment.parentId) {
+      console.warn('⚠️ API返回的评论没有parentId，手动设置')
+      newComment.parentId = parentId
+    }
+    
+    if (!newComment.isReply) {
+      newComment.isReply = true
+    }
+    
+    // 确保有replies数组
+    if (!newComment.replies) {
+      newComment.replies = []
+    }
+    
+    // 确保有_count
+    if (!newComment._count) {
+      newComment._count = { replies: 0, likes: 0 }
+    }
+    
+    console.log('🔍 解析后的评论:', {
+      id: newComment.id,
+      parentId: newComment.parentId,
+      isReply: newComment.isReply,
+      是否有replies数组: !!newComment.replies
+    })
+    
+    // 10. 替换临时回复
+    if (parentComment && parentComment.replies) {
+      const tempReplyIndex = parentComment.replies.findIndex((r: any) => r.id === tempReply.id)
+      
+      if (tempReplyIndex > -1) {
+        // 找到临时回复，用真实数据替换
+        console.log('🔄 替换临时回复，索引:', tempReplyIndex)
+        
+        // 确保替换的对象包含所有必需字段
+        parentComment.replies[tempReplyIndex] = {
+          ...newComment,
+          replies: newComment.replies || [],
+          _count: newComment._count || { replies: 0, likes: 0 }
+        }
+        console.log('✅ 临时回复替换成功')
+      } else {
+        // 如果没有临时回复，添加到开头
+        console.warn('⚠️ 未找到临时回复，将新回复添加到父评论')
+        parentComment.replies.unshift({
+          ...newComment,
+          replies: newComment.replies || [],
+          _count: newComment._count || { replies: 0, likes: 0 }
+        })
+      }
+    }
+    
+    // 11. 更新帖子评论计数
+    if (postStore.currentPost) {
+      postStore.currentPost.commentCount = (postStore.currentPost.commentCount || 0) + 1
+    }
+    
+    console.log('🎉 回复处理完成')
+    console.log('📊 最终父评论状态:', {
+      父评论ID: parentComment.id,
+      回复数: parentComment._count.replies,
+      回复列表: parentComment.replies.map((r: any) => ({ 
+        id: r.id, 
+        content: r.content,
+        parentId: r.parentId,
+        isReply: r.isReply
+      }))
+    })
+    
+    // 12. 不调用 loadPost() 或 loadComments()，只重新获取单个评论的回复
+    setTimeout(() => {
+      // 可选：重新获取这个父评论的所有回复，确保数据一致性
+      fetchCommentReplies(parentId)
+    }, 300)
+    
+    alert('回复成功！')
+    
+  } catch (error: any) {
+    console.error('❌ 回复失败:', error)
+    alert('回复失败: ' + (error.message || '未知错误'))
   }
 }
+
+// 辅助函数：递归查找评论
+const findCommentRecursive = (comments: any[], commentId: string): any => {
+  for (const comment of comments) {
+    if (comment.id === commentId) {
+      return comment
+    }
+    
+    if (comment.replies && comment.replies.length > 0) {
+      const found = findCommentRecursive(comment.replies, commentId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+
+// 重新获取评论的回复
+const fetchCommentReplies = async (commentId: string) => {
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    
+    const response = await fetch(`http://localhost:3000/api/comments/${commentId}/replies`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      console.log('🔁 重新加载评论回复:', commentId, data)
+      
+      // 找到对应的评论并更新它的回复
+      const parentComment = findCommentRecursive(postStore.currentComments, commentId)
+      if (parentComment && data.comments) {
+        parentComment.replies = data.comments
+        parentComment._count.replies = data.comments.length
+        console.log('✅ 更新评论回复成功')
+      }
+    }
+  } catch (error) {
+    console.error('重新加载评论回复失败:', error)
+  }
+}
+
+
 
 // 切换评论操作菜单
 const toggleCommentActions = (commentId: string) => {
