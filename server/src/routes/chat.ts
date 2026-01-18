@@ -38,16 +38,22 @@ router.get('/rooms/:id', authenticate, async (req: AuthRequest, res) => {
   }
 })
 
-// 获取聊天室消息
+// 修改获取消息的路由
 router.get('/rooms/:id/messages', authenticate, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params
     const page = req.query.page ? Number(req.query.page) : 1
     const limit = req.query.limit ? Number(req.query.limit) : 50
 
-    const result = await chatService.getRoomMessages(id, page, limit)
+    console.log(`📥 API: 获取房间 ${id} 的消息, page=${page}, limit=${limit}`)
     
-    res.json(result)
+    // 直接返回数组
+    const messages = await chatService.getRoomMessages(id, page, limit)
+    
+    console.log(`✅ API: 返回 ${messages.length} 条消息`)
+    
+    res.json(messages) // 直接返回数组
+    
   } catch (error: any) {
     console.error('获取消息错误:', error)
     res.status(500).json({ error: '获取消息失败' })

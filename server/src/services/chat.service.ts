@@ -41,13 +41,17 @@ class ChatService {
   }
 
   // 获取聊天室消息
-  async getRoomMessages(roomId: string, page: number = 1, limit: number = 50) {
+  // 修改 getRoomMessages 方法
+async getRoomMessages(roomId: string, page: number = 1, limit: number = 50) {
+  try {
+    console.log(`📥 获取房间消息: roomId=${roomId}, page=${page}, limit=${limit}`)
+    
     const skip = (page - 1) * limit
 
     const [messages, total] = await Promise.all([
       prisma.message.findMany({
         where: { roomId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'asc' }, // 改为正序
         skip,
         take: limit,
         include: {
@@ -63,25 +67,25 @@ class ChatService {
       prisma.message.count({ where: { roomId } }),
     ])
 
+    console.log(`✅ 从数据库获取到 ${messages.length} 条消息`)
+
     // 处理图片字段（JSON字符串转数组）
     const processedMessages = messages.map(message => ({
       ...message,
       images: message.images ? JSON.parse(message.images) : [],
+      // createdAt 保持为 Date 对象，前端会自动转换
     }))
 
-    // 按时间正序返回
-    const sortedMessages = processedMessages.reverse()
+    console.log(`✅ 返回 ${processedMessages.length} 条处理后的消息`)
 
-    return {
-      messages: sortedMessages,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    }
+    // ✅ 重要：直接返回数组，不要包装在 data 中
+    return processedMessages
+    
+  } catch (error: any) {
+    console.error('❌ 获取房间消息失败:', error)
+    return [] // 出错返回空数组
   }
+}
 
   // 创建聊天室
   async createChatRoom(name: string, description?: string, createdBy?: string) {
