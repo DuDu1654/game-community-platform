@@ -185,6 +185,52 @@ images: (data.images && Array.isArray(data.images) && data.images.length > 0)
     })
   }
 
+
+  // ✅ 添加：获取用户的评论列表
+  async getUserComments(userId: string, page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit
+    
+    const comments = await prisma.comment.findMany({
+      where: {
+        authorId: userId
+      },
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true
+          }
+        },
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip,
+      take: limit
+    })
+    
+    const total = await prisma.comment.count({
+      where: { authorId: userId }
+    })
+    
+    return {
+      comments,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  }
+
   // 删除评论
   async deleteComment(commentId: string, userId: string, isAdmin: boolean = false) {
     const comment = await prisma.comment.findUnique({

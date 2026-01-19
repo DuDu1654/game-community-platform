@@ -28,6 +28,33 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+
+  // 确保有 setUser 方法
+  const setUser = (userData: Partial<User>) => {
+    if (user.value) {
+      // 更新现有用户
+      user.value = { ...user.value, ...userData }
+    } else {
+      // 创建新用户
+      user.value = {
+        id: userData.id || '',
+        username: userData.username || '',
+        email: userData.email || '',
+        avatar: userData.avatar || '',
+        bio: userData.bio || '',
+        role: userData.role || 'USER',
+        isActive: userData.isActive !== undefined ? userData.isActive : true,
+        createdAt: userData.createdAt || new Date().toISOString(),
+        updatedAt: userData.updatedAt || new Date().toISOString()
+      }
+    }
+    
+    // 如果需要，存储到localStorage
+    if (userData.username) {
+      localStorage.setItem('username', userData.username)
+    }
+  }
+
   // 登录（修改为接收对象参数）
   const login = async (credentials: LoginData) => {
     isLoading.value = true
@@ -171,6 +198,25 @@ const register = async (data: { username: string; email: string; password: strin
     }
   }
 
+  // 更新用户信息的方法
+  const updateUser = (userData: Partial<User>) => {
+    console.log('🏪 authStore.updateUser 被调用:', userData)
+    
+    if (user.value) {
+      // 合并用户数据
+      user.value = { ...user.value, ...userData }
+      
+      // 更新 localStorage
+      localStorage.setItem('user', JSON.stringify(user.value))
+      
+      console.log('✅ authStore.user 已更新:', user.value)
+      return { success: true, user: user.value }
+    } else {
+      console.error('❌ 更新用户信息失败：用户未登录')
+      return { success: false, error: '用户未登录' }
+    }
+  }
+
   // 初始化
   initUser()
 
@@ -186,9 +232,11 @@ const register = async (data: { username: string; email: string; password: strin
     isAdmin,
     
     // 方法
+    setUser,
     login,
     register,
     logout,
     checkAuth,
+    updateUser // ✅ 导出这个方法
   }
 })

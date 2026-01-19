@@ -5,6 +5,7 @@ export interface User {
   email: string
   avatar?: string
   bio?: string
+  isActive?: boolean  // 添加这行
   role: 'USER' | 'ADMIN'
   createdAt: string
   updatedAt: string

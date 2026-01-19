@@ -5,6 +5,9 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+// 确保正确导入 AuthRequest
+import { AuthRequest } from '../middleware/auth'  // 这行很重要！
+
 // 添加类型扩展
 declare global {
   namespace Express {
@@ -199,16 +202,13 @@ router.post('/login', async (req, res) => {
 });
 
 // 获取当前用户信息
-router.get('/me', authenticate, async (req, res) => {
+// server/src/routes/auth.ts
+// 修改 GET /me 端点
+router.get('/me', authenticate, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user!.userId
     
-    if (!userId) {
-      return res.status(401).json({ 
-        success: false,
-        error: '用户ID不存在' 
-      });
-    }
+    console.log('🔍 获取用户信息，用户ID:', userId)
     
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -218,30 +218,35 @@ router.get('/me', authenticate, async (req, res) => {
         email: true,
         avatar: true,
         bio: true,
+        isActive: true,
         role: true,
         createdAt: true,
-        updatedAt: true,
-      },
-    });
-
+        updatedAt: true
+      }
+    })
+    
     if (!user) {
       return res.status(404).json({ 
         success: false,
         error: '用户不存在' 
-      });
+      })
     }
-
-    res.json({ 
+    
+    console.log('✅ 找到用户:', user)
+    
+    // 确保返回正确的结构
+    res.json({
       success: true,
-      user 
-    });
-  } catch (error) {
-    console.error('获取用户信息错误:', error);
+      data: user,  // 确保 user 对象在 data 字段中
+      message: '获取用户信息成功'
+    })
+    
+  } catch (error: any) {
+    console.error('获取用户信息失败:', error)
     res.status(500).json({ 
       success: false,
-      error: '获取用户信息失败',
-      message: error instanceof Error ? error.message : '未知错误'
-    });
+      error: '获取用户信息失败' 
+    })
   }
 });
 

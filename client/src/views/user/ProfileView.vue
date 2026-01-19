@@ -34,9 +34,11 @@
               </label>
             </div>
             
-            <h2 class="text-xl font-semibold mt-4">{{ user.username }}</h2>
-            <p class="text-gray-600">{{ user.email }}</p>
-            
+           <!-- ✅ 关键修改：用户名从 authStore 获取 -->
+            <h2 class="text-xl font-semibold mt-4">{{ authStore.user?.username || '用户' }}</h2>
+            <!-- ✅ 邮箱也从 authStore 获取 -->
+            <p class="text-gray-600">{{ authStore.user?.email || '' }}</p>
+
             <!-- 用户角色 -->
             <div class="mt-2">
               <span :class="[
@@ -484,11 +486,17 @@ import { usePostStore } from '@/stores/post'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
+// ✅ 添加这些导入
+import postService from '@/services/post.service'  // 假设有这个服务
+import commentService from '@/services/comment.service'  // 需要创建
+import likeService from '@/services/like.service'  // 需要创建
+import userService from '@/services/user.service'
 // 导入正确的 User 类型
 import type { User } from '@/types/user'
 
 const authStore = useAuthStore()
 const postStore = usePostStore()
+
 
 // 状态
 const activeTab = ref('posts')
@@ -513,6 +521,7 @@ const user = computed(() => {
     bio: '',
     createdAt: '',
     updatedAt: '',  // 添加 updatedAt
+    isActive: true
   }
 })
 
@@ -619,6 +628,23 @@ const loadUserData = async () => {
   loading.value = true
   
   try {
+
+// ✅ 1. 加载用户统计信息
+    const statsResponse = await userService.getUserStats(user.value.id)
+    if (statsResponse.success && statsResponse.data) {
+      stats.value = {
+        posts: statsResponse.data.posts || 0,
+        comments: statsResponse.data.comments || 0,
+        likes: statsResponse.data.likes || 0
+      }
+    }
+
+
+
+
+
+
+
     // 加载用户帖子
     // fetchPosts是void类型，不返回数据，只更新store的state
     await postStore.fetchPosts({
@@ -661,34 +687,98 @@ if (tabs.value && tabs.value[0]) {
     // 这里可以添加加载评论和点赞的逻辑
     // 由于时间关系，我们使用模拟数据
     
-    // 模拟评论数据
-    userComments.value = [
-      { id: '1', content: '这个攻略很有用！', postId: '1', post: { title: '英雄联盟最新攻略' }, createdAt: new Date(Date.now() - 3600000).toISOString() },
-      { id: '2', content: '我同意你的观点', postId: '2', post: { title: 'CS:GO枪法练习' }, createdAt: new Date(Date.now() - 7200000).toISOString() },
-    ]
-    stats.value.comments = 15
+  // ✅ 3. 加载用户评论 - 使用现有 commentService
+    try {
+      const commentsResponse = await commentService.getUserComments(user.value.id, {
+        page: 1,
+        limit: 20
+      })
+      
+      if (commentsResponse.success) {
+        // 你的 commentService.getUserComments 返回的数据结构可能是 response.data
+        const responseData = commentsResponse.data?.data || commentsResponse.data
+        
+        if (responseData && Array.isArray(responseData.comments)) {
+          userComments.value = responseData.comments.map((comment: any) => ({
+            id: comment.id,
+            content: comment.content,
+            postId: comment.postId,
+            post: comment.post || { id: comment.postId, title: '未知帖子' },
+            createdAt: comment.createdAt,
+            author: comment.author || {
+              id: user.value.id,
+              username: user.value.username,
+              avatar: user.value.avatar
+            }
+          }))
+          
+          // 如果stats中没有评论数，但接口返回了分页信息
+          if (stats.value.comments === 0 && responseData.pagination) {
+            stats.value.comments = responseData.pagination.total
+          }
+        } else if (Array.isArray(responseData)) {
+          userComments.value = responseData
+        } else {
+          console.warn('评论数据格式异常:', responseData)
+          userComments.value = []
+        }
+      } else {
+        console.error('获取评论失败:', commentsResponse.error)
+        userComments.value = []
+      }
+    } catch (error) {
+      console.error('加载评论失败:', error)
+      userComments.value = []
+    }
     
-
-   // 在访问前检查 tabs.value
-if (tabs.value && tabs.value[1]) {
-  tabs.value[1].count = stats.value.comments
-}
-
-
+    // 更新标签页计数
+    if (tabs.value && tabs.value[1]) {
+      tabs.value[1].count = userComments.value.length
+    }
     
-    // 模拟点赞数据
-    userLikes.value = [
-      { id: '1', postId: '1', post: { title: '英雄联盟最新攻略' }, createdAt: new Date(Date.now() - 1800000).toISOString() },
-      { id: '2', commentId: '1', comment: { content: '这个攻略很有用！', postId: '1' }, createdAt: new Date(Date.now() - 3600000).toISOString() },
-    ]
-    stats.value.likes = 42
-   
-
-
-    // 在访问前检查 tabs.value
-if (tabs.value && tabs.value[2]) {
-  tabs.value[2].count = stats.value.likes
-}
+    // ✅ 4. 加载用户点赞 - 使用现有 likeService
+    try {
+      const likesResponse = await likeService.getUserLikes(user.value.id, {
+        page: 1,
+        limit: 20
+      })
+      
+      if (likesResponse.success) {
+        const responseData = likesResponse.data?.data || likesResponse.data
+        
+        if (responseData && Array.isArray(responseData.likes)) {
+          userLikes.value = responseData.likes.map((like: any) => ({
+            id: like.id,
+            targetId: like.targetId,
+            targetType: like.targetType,
+            post: like.post,
+            comment: like.comment,
+            createdAt: like.createdAt
+          }))
+          
+          // 如果stats中没有点赞数，但接口返回了分页信息
+          if (stats.value.likes === 0 && responseData.pagination) {
+            stats.value.likes = responseData.pagination.total
+          }
+        } else if (Array.isArray(responseData)) {
+          userLikes.value = responseData
+        } else {
+          console.warn('点赞数据格式异常:', responseData)
+          userLikes.value = []
+        }
+      } else {
+        console.error('获取点赞失败:', likesResponse.error)
+        userLikes.value = []
+      }
+    } catch (error) {
+      console.error('加载点赞失败:', error)
+      userLikes.value = []
+    }
+    
+    // 更新标签页计数
+    if (tabs.value && tabs.value[2]) {
+      tabs.value[2].count = userLikes.value.length
+    }
     
   } catch (error) {
     console.error('加载用户数据失败:', error)

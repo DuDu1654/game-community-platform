@@ -187,6 +187,30 @@ router.get('/post/:postId', async (req, res) => {
   }
 })
 
+// 在 server/src/routes/comments.ts 末尾的 export default router 前添加
+
+// ✅ 添加：获取用户的评论列表
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params
+    const page = req.query.page ? Number(req.query.page) : 1
+    const limit = req.query.limit ? Number(req.query.limit) : 20
+
+    // 使用你的 commentService
+    const result = await commentService.getUserComments(userId, page, limit)
+    
+    res.json({
+      success: true,
+      data: result
+    })
+  } catch (error: any) {
+    console.error('获取用户评论错误:', error)
+    res.status(500).json({ 
+      success: false,
+      error: '获取用户评论失败' 
+    })
+  }
+})
 
 
 

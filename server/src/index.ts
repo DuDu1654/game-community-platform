@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import http from 'http';
+import routes from './routes'  // 导入路由
 import { Server as SocketIOServer } from 'socket.io';
 
 // 导入配置
@@ -16,6 +17,7 @@ import newsRoutes from './routes/news';
 import commentRoutes from './routes/comments';
 import chatRoutes from './routes/chat';
 import statsRoutes from './routes/stats';
+import userRoutes from './routes/user'  // 确保导入user路由
 // 确保你的代码中有这部分
 import socketService from './services/socket.service'
 
@@ -25,6 +27,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+
 
 // 创建HTTP服务器和Socket.IO实例
 const server = http.createServer(app);
@@ -39,7 +43,20 @@ const server = http.createServer(app);
 socketService.initialize(server)  // 确保这行存在
 
 
+// 添加CORS配置
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'], // 允许的前端地址
+  credentials: true, // 允许携带cookie
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // 允许的HTTP方法
+  allowedHeaders: ['Content-Type', 'Authorization'] // 允许的请求头
+}))
 
+// 解析JSON请求体
+app.use(express.json())
+
+
+// 使用路由
+app.use('/api', routes)  // 注意：这应该是 /api 前缀
 
 // 中间件
 app.use(cors({
@@ -68,6 +85,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/user', userRoutes)  // 确保这行存在
 
 // 1. 欢迎页面（HTML格式）- 保留你的原本页面
 app.get('/', (req, res) => {

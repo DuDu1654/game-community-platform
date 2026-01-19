@@ -12,6 +12,11 @@ export interface ApiResponse<T = any> {
     total: number
     pages: number
   }
+
+  // ✅ 添加这些字段
+  room?: any
+  rooms?: any[]
+ 
 }
 
 export interface ChatMessage {

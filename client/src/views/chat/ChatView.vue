@@ -34,18 +34,18 @@
           <h3 class="text-lg font-semibold mb-4">聊天室</h3>
           
           <!-- 聊天室列表 -->
-          <div class="space-y-2">
-            <button
-              v-for="room in chatRooms"
-              :key="room.id"
-              @click="switchRoom(room.id)"
-              :class="[
-                'w-full text-left px-4 py-3 rounded-lg transition-colors',
-                activeRoomId === room.id
-                  ? 'bg-primary-50 border border-primary-200'
-                  : 'hover:bg-gray-50'
-              ]"
-            >
+          <div class="space-y-2 max-h-72 overflow-y-auto" style="height: 288px;"> <!-- 4个聊天室 * 72px高度 -->
+  <button
+    v-for="room in chatRooms"
+    :key="room.id"
+    @click="switchRoom(room.id)"
+    :class="[
+      'w-full text-left px-4 py-3 rounded-lg transition-colors',
+      activeRoomId === room.id
+        ? 'bg-primary-50 border border-primary-200'
+        : 'hover:bg-gray-50'
+    ]"
+  >
               <div class="flex items-center justify-between">
                 <div>
                   <div class="font-medium text-gray-900">{{ room.name }}</div>
@@ -849,32 +849,97 @@ const switchRoom = async (roomId: string) => {
   scrollToBottom()
 }
 
-// 创建聊天室
+// ChatView.vue 中的 createChatRoom 函数
 const createChatRoom = async () => {
-  if (!newRoomName.value.trim()) return
+  console.log('🎯 创建聊天室按钮被点击')
+  console.log('🔍 当前值:', {
+    newRoomName: newRoomName.value,
+    newRoomDescription: newRoomDescription.value
+  })
+  
+  if (!newRoomName.value || !newRoomName.value.trim()) {
+    console.log('❌ 房间名称为空，不执行创建')
+    alert('请输入房间名称')
+    return
+  }
   
   try {
+    console.log('📤 开始创建聊天室...')
     const response = await chatService.createChatRoom({
-      name: newRoomName.value,
-      description: newRoomDescription.value
+      name: newRoomName.value.trim(),
+      description: newRoomDescription.value.trim() || undefined
     })
     
-    if (response.success) {
-      chatRooms.value.push({
-        id: response.data.room.id,
-        name: response.data.room.name,
-        description: response.data.room.description,
-        unreadCount: 0
-      })
+    console.log('📥 服务器响应:', response)
+    
+    if (response && response.room) {  // ✅ 检查 room 是否存在
+      console.log('✅ 聊天室创建成功:', response.room)
       
+      // ✅ 重点：将新聊天室添加到列表前端
+      const newRoom = {
+        id: response.room.id,
+        name: response.room.name,
+        description: response.room.description || '',
+        unreadCount: 0
+      }
+      
+      // ✅ 使用 unshift 添加到列表开头
+      chatRooms.value.unshift(newRoom)
+      console.log('📋 聊天室列表已更新:', chatRooms.value)
+      
+      // 清空输入框
       newRoomName.value = ''
       newRoomDescription.value = ''
       
-      alert('聊天室创建成功！')
+      // 显示成功提示
+      alert('🎉 聊天室创建成功！')
+      
+      // ✅ 自动切换到新房间
+      setTimeout(() => {
+        switchRoom(response.room.id)
+      }, 1000)
+    } else if (response && response.success) {
+      // 处理新版响应格式
+      console.log('✅ 聊天室创建成功(新版格式):', response)
+      
+      const newRoom = {
+        id: response.room.id,
+        name: response.room.name,
+        description: response.room.description || '',
+        unreadCount: 0
+      }
+      
+      chatRooms.value.unshift(newRoom)
+      alert('🎉 聊天室创建成功！')
+      
+      setTimeout(() => {
+        switchRoom(response.room.id)
+      }, 1000)
+    } else {
+      console.log('❌ 服务器返回错误:', response)
+      alert('创建失败: 服务器返回格式错误')
     }
-  } catch (error) {
-    console.error('创建聊天室失败:', error)
-    alert('创建聊天室失败')
+  } catch (error: any) {
+    console.error('❌ 创建聊天室异常:', error)
+    console.error('错误详情:', {
+      消息: error.message,
+      状态码: error.response?.status,
+      数据: error.response?.data
+    })
+    
+    let errorMessage = '创建失败: '
+    
+    if (error.response?.data?.error) {
+      errorMessage += error.response.data.error
+    } else if (error.response?.data?.message) {
+      errorMessage += error.response.data.message
+    } else if (error.message) {
+      errorMessage += error.message
+    } else {
+      errorMessage += '未知错误'
+    }
+    
+    alert(errorMessage)
   }
 }
 
@@ -937,11 +1002,84 @@ const testLatency = () => {
   }, 100)
 }
 
+
+// ChatView.vue 中的 loadChatRoomsFromServer 函数
+const loadChatRoomsFromServer = async () => {
+  try {
+    console.log('📥 从服务器加载聊天室列表...')
+    
+    // 调用API获取聊天室列表
+    const response = await chatService.getChatRooms() as any
+    
+    console.log('📤 服务器返回的完整响应:', response)
+    
+    // ✅ 修复1: 正确处理后端返回的格式
+    if (response && response.success && response.data) {
+      // 第一种格式: { success: true, data: { rooms: [...], pagination: {...} } }
+      if (response.data.rooms) {
+        console.log(`✅ 格式1: 从服务器加载了 ${response.data.rooms.length} 个聊天室`)
+        chatRooms.value = response.data.rooms.map((room: any) => ({
+          id: room.id,
+          name: room.name,
+          description: room.description || '',
+          unreadCount: room.unreadCount || 0
+        }))
+        return
+      }
+      
+      // 第二种格式: { success: true, data: [...] }
+      if (Array.isArray(response.data)) {
+        console.log(`✅ 格式2: 从服务器加载了 ${response.data.length} 个聊天室`)
+        chatRooms.value = response.data.map((room: any) => ({
+          id: room.id,
+          name: room.name,
+          description: room.description || '',
+          unreadCount: room.unreadCount || 0
+        }))
+        return
+      }
+    }
+    
+    // ✅ 修复2: 直接处理后端原始格式 { rooms: [...], pagination: {...} }
+    if (response && response.rooms) {
+      console.log(`✅ 格式3: 从服务器加载了 ${response.rooms.length} 个聊天室`)
+      chatRooms.value = response.rooms.map((room: any) => ({
+        id: room.id,
+        name: room.name,
+        description: room.description || '',
+        unreadCount: room.unreadCount || 0
+      }))
+      return
+    }
+    
+    // ✅ 修复3: 处理 data 中包含 rooms
+    if (response && response.data && response.data.rooms) {
+      console.log(`✅ 格式4: 从服务器加载了 ${response.data.rooms.length} 个聊天室`)
+      chatRooms.value = response.data.rooms.map((room: any) => ({
+        id: room.id,
+        name: room.name,
+        description: room.description || '',
+        unreadCount: room.unreadCount || 0
+      }))
+      return
+    }
+    
+    console.log('⚠️ 无法识别服务器响应格式:', response)
+    
+    // 如果都失败了，检查响应结构
+    console.log('🔍 服务器响应结构:', Object.keys(response))
+    
+  } catch (error) {
+    console.error('❌ 加载聊天室列表失败:', error)
+    // 保持现有列表，不重新赋值
+  }
+}
+
 // 修复5: 安全的初始化
+// 修改 onMounted
 onMounted(async () => {
   console.log('🚀 ChatView组件已挂载')
-
-
+  
   // 暴露服务到window，便于调试
   window.__chatService = chatService
   window.__socketService = socketService
@@ -952,6 +1090,21 @@ onMounted(async () => {
     socketService: !!socketService,
     authStore: !!authStore
   })
+  
+  // ✅ 1. 首先从服务器加载聊天室列表
+  await loadChatRoomsFromServer()
+  console.log('✅ 初始化聊天室列表:', chatRooms.value)
+  
+  // 2. 如果列表为空，添加默认聊天室
+  if (chatRooms.value.length === 0) {
+    console.log('📋 聊天室列表为空，添加默认聊天室')
+    chatRooms.value = [
+      { id: 'general', name: '综合讨论区', description: '综合游戏讨论', unreadCount: 0 },
+      { id: 'lol', name: '英雄联盟', description: 'LOL玩家聚集地', unreadCount: 0 },
+      { id: 'csgo', name: 'CS:GO', description: '反恐精英全球攻势', unreadCount: 0 },
+      { id: 'valorant', name: '无畏契约', description: 'Valorant玩家社区', unreadCount: 0 },
+    ]
+  }
   
   // 验证messageInput类型
   if (typeof messageInput.value !== 'string') {

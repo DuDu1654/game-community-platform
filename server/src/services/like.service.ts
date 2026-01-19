@@ -142,60 +142,58 @@ async likeComment(commentId: string, userId: string) {
     return { liked: !!like }
   }
 
-  // 获取用户的点赞记录
-  async getUserLikes(userId: string, page: number = 1, limit: number = 20) {
-    const skip = (page - 1) * limit
-
-    const [likes, total] = await Promise.all([
-      prisma.like.findMany({
-        where: { authorId: userId },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          post: {
-            include: {
-              author: {
-                select: {
-                  id: true,
-                  username: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-          comment: {
-            include: {
-              author: {
-                select: {
-                  id: true,
-                  username: true,
-                  avatar: true,
-                },
-              },
-              post: {
-                select: {
-                  id: true,
-                  title: true,
-                },
-              },
-            },
-          },
-        },
-      }),
-      prisma.like.count({ where: { authorId: userId } }),
-    ])
-
-    return {
-      likes,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    }
+  // 修改 getUserLikes 方法
+async getUserLikes(userId: string, page: number = 1, limit: number = 20, targetType: 'all' | 'post' | 'comment' = 'all') {
+  const skip = (page - 1) * limit
+  
+  // 构建查询条件
+  const whereCondition: any = { authorId: userId }
+  
+  // 根据 targetType 筛选
+  if (targetType === 'post') {
+    whereCondition.postId = { not: null }
+  } else if (targetType === 'comment') {
+    whereCondition.commentId = { not: null }
   }
+  // 如果是 'all' 就不筛选
+
+  const [likes, total] = await Promise.all([
+    prisma.like.findMany({
+      where: whereCondition,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true
+          }
+        },
+        comment: {
+          select: {
+            id: true,
+            content: true,
+            postId: true
+          }
+        }
+      },
+    }),
+    prisma.like.count({ 
+      where: whereCondition 
+    }),
+  ])
+
+  return {
+    likes,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  }
+}
 }
 
 export default new LikeService()

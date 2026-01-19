@@ -59,7 +59,7 @@
           </div>
 
           <!-- 用户菜单 -->
-          <div v-if="isAuthenticated" class="flex items-center space-x-3">
+          <div v-if="authStore.isAuthenticated" class="flex items-center space-x-3">
             <button 
               @click="goToChat"
               class="p-2 text-gray-600 hover:text-game-blue relative"

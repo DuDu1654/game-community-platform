@@ -87,75 +87,160 @@ async getRoomMessages(roomId: string, page: number = 1, limit: number = 50) {
   }
 }
 
-  // 创建聊天室
-  async createChatRoom(name: string, description?: string, createdBy?: string) {
-    // 简单的聊天室实现
-    const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  // server/src/services/chat.service.ts
+async createChatRoom(name: string, description?: string, createdBy?: string) {
+  try {
+    console.log('🎯 创建聊天室:', { name, description, createdBy })
     
-    // 这里简化处理，实际应该存储到数据库
+    // 1. 检查是否已存在同名房间
+    const existingRoom = await prisma.room.findFirst({
+      where: { name }
+    })
+    
+    if (existingRoom) {
+      throw new Error(`聊天室 "${name}" 已存在`)
+    }
+    
+    // 2. 创建到数据库
+    const room = await prisma.room.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim(),
+        createdBy: createdBy || null,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        // 这里不返回members，因为数据库中没有这个字段
+        // 你可以添加一个虚拟字段或通过关联查询获取
+      }
+    })
+    
+    console.log('✅ 聊天室已保存到数据库:', room)
+    
+    // 3. 返回格式化数据
     return {
-      id: roomId,
-      name,
-      description,
-      createdAt: new Date(),
+      id: room.id,
+      name: room.name,
+      description: room.description || '',
+      createdAt: room.createdAt,
       members: createdBy ? [createdBy] : [],
     }
+    
+  } catch (error: any) {
+    console.error('❌ 创建聊天室失败:', error)
+    throw error
   }
+}
 
-  // 获取聊天室列表
-  async getChatRooms(userId?: string, page: number = 1, limit: number = 20) {
-    // 这里简化处理，实际应该从数据库查询
-    const rooms: ChatRoom[] = [
-      {
-        id: 'general',
-        name: '综合讨论区',
-        description: '综合游戏讨论',
-        createdAt: new Date(),
-        members: [],
-      },
-      {
-        id: 'lol',
-        name: '英雄联盟',
-        description: 'LOL玩家聚集地',
-        createdAt: new Date(),
-        members: [],
-      },
-      {
-        id: 'csgo',
-        name: 'CS:GO',
-        description: '反恐精英全球攻势',
-        createdAt: new Date(),
-        members: [],
-      },
-      {
-        id: 'valorant',
-        name: '无畏契约',
-        description: 'Valorant玩家社区',
-        createdAt: new Date(),
-        members: [],
-      },
-    ]
-
-    const start = (page - 1) * limit
-    const end = start + limit
-    const paginatedRooms = rooms.slice(start, end)
-
+  // server/src/services/chat.service.ts
+async getChatRooms(userId?: string, page: number = 1, limit: number = 20) {
+  try {
+    console.log('📥 获取聊天室列表:', { userId, page, limit })
+    
+    const skip = (page - 1) * limit
+    
+    // 从数据库查询
+    const [rooms, total] = await Promise.all([
+      prisma.room.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          createdAt: true,
+          _count: {
+            select: {
+              messages: true  // 可以返回消息计数
+            }
+          }
+        }
+      }),
+      prisma.room.count()
+    ])
+    
+    // 格式化返回数据
+    const formattedRooms = rooms.map(room => ({
+      id: room.id,
+      name: room.name,
+      description: room.description || '',
+      createdAt: room.createdAt,
+      members: [],  // 暂时返回空数组，如果需要可以从其他表查询
+      messageCount: room._count.messages
+    }))
+    
+    console.log(`✅ 从数据库获取到 ${formattedRooms.length} 个聊天室`)
+    
     return {
-      rooms: paginatedRooms,
+      rooms: formattedRooms,
       pagination: {
         page,
         limit,
-        total: rooms.length,
-        pages: Math.ceil(rooms.length / limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    }
+    
+  } catch (error: any) {
+    console.error('❌ 获取聊天室列表失败:', error)
+    // 返回空数据而不是抛出错误
+    return {
+      rooms: [],
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        pages: 0,
       },
     }
   }
+}
 
-  // 获取聊天室详情
-  async getChatRoom(roomId: string) {
-    const rooms = await this.getChatRooms()
-    return rooms.rooms.find(room => room.id === roomId) || null
+  // server/src/services/chat.service.ts
+async getChatRoom(roomId: string) {
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        createdBy: true,
+        messages: {
+          take: 1,  // 只取最近消息
+          orderBy: { createdAt: 'desc' },
+          select: {
+            content: true,
+            createdAt: true
+          }
+        }
+      }
+    })
+    
+    if (!room) {
+      console.log(`❌ 聊天室不存在: ${roomId}`)
+      return null
+    }
+    
+    return {
+      id: room.id,
+      name: room.name,
+      description: room.description || '',
+      createdAt: room.createdAt,
+      members: room.createdBy ? [room.createdBy] : [],
+      lastMessage: room.messages[0] || null
+    }
+    
+  } catch (error: any) {
+    console.error(`❌ 获取聊天室详情失败: ${roomId}`, error)
+    return null
   }
+}
 
   // 获取未读消息数
   async getUnreadCount(roomId: string, userId: string, lastReadAt?: Date) {
