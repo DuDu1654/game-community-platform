@@ -20,7 +20,8 @@ import statsRoutes from './routes/stats';
 import userRoutes from './routes/user'  // 确保导入user路由
 // 确保你的代码中有这部分
 import socketService from './services/socket.service'
-
+// 在现有代码中找到路由注册的地方，添加：
+import adminRouter from './routes/admin'
 
 // 加载环境变量
 dotenv.config();
@@ -82,6 +83,8 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/news', newsRoutes);
+// 在 app.use('/api/news', newsRouter) 下面添加：
+app.use('/api/admin', adminRouter)
 app.use('/api/comments', commentRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/stats', statsRoutes);

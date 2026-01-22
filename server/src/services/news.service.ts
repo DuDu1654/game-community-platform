@@ -47,70 +47,184 @@ class NewsService {
     })
   }
 
-  // 获取新闻列表
-  async getNewsList(params: NewsQueryParams) {
-    const page = params.page || 1
-    const limit = params.limit || 10
-    const skip = (page - 1) * limit
+  // server/src/services/news.service.ts
+// 修改getNewsList方法中的查询结果处理
+// server/src/services/news.service.ts
+// 修改getNewsList方法
+async getNewsList(params: NewsQueryParams) {
+  const page = params.page || 1
+  const limit = params.limit || 10
+  const skip = (page - 1) * limit
 
-    // 构建查询条件
-    const where: Prisma.NewsWhereInput = {}
-    
-    if (params.featured) {
-      where.isFeatured = true
+  // 构建查询条件
+  const where: Prisma.NewsWhereInput = {}
+  
+  if (params.featured) {
+    where.isFeatured = true
+  }
+  
+  if (params.tag) {
+    where.tags = {
+      contains: params.tag as string,
     }
+  }
+  
+  if (params.search) {
+    where.OR = [
+      { title: { contains: params.search as string } },
+      { content: { contains: params.search as string } },
+      { summary: { contains: params.search as string } },
+    ]
+  }
+
+  const [news, total] = await Promise.all([
+    prisma.news.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.news.count({ where }),
+  ])
+
+  // 🔥 修复类型错误
+  const processedNews = news.map((item: any) => {
+    let tagsArray: string[] = []
     
-    if (params.tag) {
-      // 如果 tags 是字符串，用 contains 搜索
-      where.tags = {
-        contains: params.tag,  // 用 contains 替代 has
+    if (item.tags) {
+      try {
+        if (typeof item.tags === 'string') {
+          const parsed = JSON.parse(item.tags)
+          
+          if (Array.isArray(parsed)) {
+            // 情况1: 直接是数组 ["标签1", "标签2"]
+            tagsArray = parsed.filter((tag: any) => 
+              tag && typeof tag === 'string' && tag.trim()
+            )
+          } else if (parsed && typeof parsed === 'object' && parsed.tags && Array.isArray(parsed.tags)) {
+            // 情况2: 对象包含tags字段 {tags: ["标签1", "标签2"]}
+            tagsArray = parsed.tags.filter((tag: any) => 
+              tag && typeof tag === 'string' && tag.trim()
+            )
+          } else if (typeof parsed === 'string') {
+            // 情况3: 是逗号分隔的字符串
+            tagsArray = parsed.split(',')
+              .map((tag: string) => tag.trim())
+              .filter((tag: string) => tag)
+          } else {
+            tagsArray = []
+          }
+        } else if (Array.isArray(item.tags)) {
+          // 情况4: 已经是数组
+          tagsArray = item.tags.filter((tag: any) => 
+            tag && typeof tag === 'string' && tag.trim()
+          )
+        }
+      } catch (error) {
+        console.warn('后端解析tags失败，ID:', item.id, error)
+        
+        // 尝试逗号分隔
+        if (typeof item.tags === 'string' && item.tags.includes(',')) {
+          tagsArray = item.tags.split(',')
+            .map((tag: string) => tag.trim())
+            .filter((tag: string) => tag)
+        } else if (typeof item.tags === 'string') {
+          // 单个标签
+          const trimmedTag = item.tags.trim()
+          if (trimmedTag) {
+            tagsArray = [trimmedTag]
+          }
+        }
       }
     }
     
-    if (params.search) {
-      where.OR = [
-        { title: { contains: params.search } },  // 移除 mode
-        { content: { contains: params.search } },
-        { summary: { contains: params.search } },
-      ]
-    }
-
-    const [news, total] = await Promise.all([
-      prisma.news.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.news.count({ where }),
-    ])
-
     return {
-      news,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
-      },
+      ...item,
+      tags: tagsArray,  // 替换为处理后的数组
+      viewCount: Number(item.viewCount) || 0
     }
-  }
+  })
 
-  // 获取新闻详情
-  async getNewsById(id: string, incrementView: boolean = false) {
+  return {
+    news: processedNews,  // 返回处理后的数据
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1,
+    },
+  }
+}
+
+  // server/src/services/news.service.ts
+async getNewsById(id: string, incrementView = false) {
+  try {
+    console.log('🔍 news.service: 获取新闻详情，ID:', id)
+    
+    const news = await prisma.news.findUnique({
+      where: { id }
+    })
+    
+    if (!news) {
+      console.log('❌ news.service: 新闻不存在，ID:', id)
+      return null
+    }
+    
+    // 🔥 修复：处理 tags 字段
+    let tagsArray = []
+    try {
+      if (news.tags) {
+        if (typeof news.tags === 'string') {
+          // 如果是字符串，尝试解析JSON
+          const parsed = JSON.parse(news.tags)
+          // 如果解析后是对象且有 tags 数组
+          if (parsed && typeof parsed === 'object') {
+            tagsArray = Array.isArray(parsed.tags) ? parsed.tags : 
+                       Array.isArray(parsed) ? parsed : []
+          } else if (Array.isArray(parsed)) {
+            tagsArray = parsed
+          } else if (typeof parsed === 'string') {
+            // 如果是逗号分隔的字符串
+            tagsArray = parsed.split(',').map(tag => tag.trim()).filter(tag => tag)
+          }
+        } else if (Array.isArray(news.tags)) {
+          tagsArray = news.tags
+        }
+      }
+    } catch (parseError) {
+      console.error('❌ 解析tags失败:', parseError)
+      tagsArray = []
+    }
+    
+    // 增加浏览量
     if (incrementView) {
+      console.log('📈 news.service: 增加新闻浏览量，ID:', id)
       await prisma.news.update({
         where: { id },
-        data: { viewCount: { increment: 1 } },
+        data: { viewCount: { increment: 1 } }
       })
     }
-
-    return await prisma.news.findUnique({
-      where: { id },
+    
+    const result = {
+      ...news,
+      tags: tagsArray  // 使用处理后的数组
+    }
+    
+    console.log('✅ news.service: 返回新闻数据:', {
+      id: result.id,
+      title: result.title,
+      tags: result.tags,
+      tagsType: typeof result.tags
     })
+    
+    return result
+  } catch (error) {
+    console.error('❌ news.service: 获取新闻详情错误:', error)
+    throw error
   }
+}
 
   // 更新新闻
   async updateNews(id: string, data: UpdateNewsInput) {

@@ -23,6 +23,10 @@ model User {
   messages  Message[]
   posts     Post[]
 
+ 
+  newsComments   NewsComment[]  
+  commentLikes   NewsCommentLike[]  
+
   @@map("user")
 }
 
@@ -135,13 +139,58 @@ model News {
   source     String?
   viewCount  Int      @default(0)
   isFeatured Boolean  @default(false)
-  tags       String?
+  tags       String?  @db.Text
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+   comments  NewsComment[] 
 
   @@index([createdAt])
   @@index([isFeatured])
   @@map("news")
+}
+
+
+model NewsComment {
+  id           String       @id @default(cuid())
+  content      String       @db.Text
+  images       Json?
+  isReply      Boolean      @default(false)
+  likeCount    Int          @default(0)
+  replyCount   Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  
+  // 外键关联
+  newsId       String
+  authorId     String
+  parentId     String?
+  
+  // 关系定义
+  author       User         @relation(fields: [authorId], references: [id])
+  news         News         @relation(fields: [newsId], references: [id])
+  parent       NewsComment? @relation("NewsCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      NewsComment[] @relation("NewsCommentReplies")
+  likes        NewsCommentLike[]
+  
+  // 索引
+  @@index([newsId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@map("news_comments")
+}
+
+model NewsCommentLike {
+  id         String       @id @default(cuid())
+  createdAt  DateTime     @default(now())
+  commentId  String
+  authorId   String
+  author     User         @relation(fields: [authorId], references: [id])
+  comment    NewsComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  // 唯一约束：一个用户只能对一条评论点赞一次
+  @@unique([authorId, commentId])
+  @@map("news_comment_likes")
 }
 
 enum Role {

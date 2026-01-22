@@ -41,7 +41,7 @@ const generateToken = (payload: { userId: string; username: string; role: string
   );
 };
 
-// 简单的认证中间件（修正版）
+// 简单的认证中间件
 const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -51,7 +51,14 @@ const authenticate = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-this') as any;
-    req.user = { userId: decoded.userId, username: decoded.username, role: decoded.role };
+    
+    // 将用户信息附加到 req.user
+    (req as any).user = { 
+      userId: decoded.userId, 
+      username: decoded.username, 
+      role: decoded.role 
+    };
+    
     next();
   } catch (error) {
     return res.status(401).json({ error: '认证令牌无效' });
@@ -259,4 +266,7 @@ router.get('/test', (req, res) => {
   });
 });
 
+
+// 导出 authenticate
+export { authenticate };
 export default router;

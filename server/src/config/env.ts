@@ -40,7 +40,7 @@ const getConfig = (): Config => {
     JWT_SECRET: process.env.JWT_SECRET || 'your-jwt-secret-key-here-change-in-production',
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
     CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
-    SOCKET_PORT: parseInt(process.env.SOCKET_PORT || '3001', 10),
+    SOCKET_PORT: parseInt(process.env.SOCKET_PORT || '3000', 10),
     LOG_LEVEL: process.env.LOG_LEVEL || 'info',
     MAX_FILE_SIZE: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10), // 5MB
     ALLOWED_IMAGE_TYPES: (process.env.ALLOWED_IMAGE_TYPES || 'image/jpeg,image/png,image/gif,image/webp').split(','),
