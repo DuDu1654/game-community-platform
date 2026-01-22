@@ -84,9 +84,9 @@
                         热门
                       </span>
                     </h3>
-                    <p v-if="newsItem.summary" class="text-gray-600 mb-4 line-clamp-2">
-                      {{ newsItem.summary }}
-                    </p>
+                   <p v-if="newsItem.content" class="text-gray-600 mb-4 line-clamp-2">
+  {{ generateSummary(newsItem.content) }}
+</p>
                     <div class="flex items-center space-x-4 text-sm text-gray-500">
                       <span>发布于 {{ formatTime(newsItem.createdAt) }}</span>
                       <span>{{ newsItem.viewCount }} 次浏览</span>
@@ -96,15 +96,16 @@
                 </div>
 
                 <!-- 标签 -->
-                <div class="mt-4 flex flex-wrap gap-2">
-                  <span
-                    v-for="tag in newsItem.tags"
-                    :key="tag"
-                    class="badge badge-secondary"
-                  >
-                    {{ tag }}
-                  </span>
-                </div>
+                <div v-if="newsItem.tags && Array.isArray(newsItem.tags) && newsItem.tags.length > 0" 
+     class="mt-4 flex flex-wrap gap-2">
+  <span
+    v-for="(tag, index) in newsItem.tags"
+    :key="index"
+    class="badge badge-secondary"
+  >
+    {{ tag }}
+  </span>
+</div>
               </div>
             </div>
           </div>
@@ -344,6 +345,24 @@ const handleSubscribe = () => {
   email.value = ''
 }
 
+
+// 🔥 添加这个函数
+function generateSummary(content: string, maxLength: number = 150) {
+  if (!content) return ''
+  
+  // 去除HTML标签
+  const plainText = content
+    .replace(/<[^>]*>/g, '')  // 移除HTML标签
+    .replace(/&nbsp;/g, ' ')  // 转换空格实体
+    .replace(/\s+/g, ' ')     // 合并多个空格
+    .trim()
+  
+  // 截取指定长度
+  if (plainText.length <= maxLength) return plainText
+  
+  return plainText.substring(0, maxLength) + '...'
+}
+
 // 监听搜索和筛选变化
 watch([searchQuery, showFeatured], () => {
   newsStore.pagination.page = 1
@@ -363,7 +382,9 @@ onMounted(async () => {
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 3;  /* 添加这行 */
   -webkit-box-orient: vertical;
+  box-orient: vertical; /* 添加这行 */
   overflow: hidden;
 }
 </style>

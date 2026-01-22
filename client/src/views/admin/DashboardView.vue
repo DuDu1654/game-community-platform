@@ -23,7 +23,7 @@
       <div class="mt-4 flex items-center">
         <div class="flex items-center px-3 py-1 bg-red-100 text-red-600 text-sm font-medium rounded-full mr-3">
           <span class="mr-1">🚧</span>
-          开发版本
+          开发版s本
         </div>
         <div class="text-sm text-gray-500">
           最后更新: 2024-01-08 15:30

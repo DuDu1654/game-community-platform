@@ -1,5 +1,7 @@
+// client/src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router'
 
+// 创建路由实例
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -13,7 +15,7 @@ const router = createRouter({
       path: '/test',
       name: 'test',
       component: () => import('@/views/TestView.vue'),
-      meta: { hideNavbar: true }  // 测试页面不显示导航栏
+      meta: { hideNavbar: true }
     },
     {
       path: '/login',
@@ -37,6 +39,18 @@ const router = createRouter({
       path: '/forums/:id',
       name: 'forum-detail',
       component: () => import('@/views/forums/ForumDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/forums/create',
+      name: 'forum-create',
+      component: () => import('@/views/forums/CreatePostView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/forums/:id/edit',
+      name: 'forum-edit',
+      component: () => import('@/views/forums/EditPostView.vue'),
       meta: { requiresAuth: true }
     },
     {
@@ -70,13 +84,50 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      // 管理员登录页面
+      path: '/admin/login',
+      name: 'admin-login',
+      component: () => import('@/views/admin/AdminLogin.vue'),
+      meta: { requiresAuth: false, hideNavbar: true }
+    },
+    {
+      // 管理员布局页面
       path: '/admin',
       name: 'admin',
+      component: () => import('@/views/admin/AdminLayout.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        {
+          path: '',
+          name: 'admin-dashboard',
+          component: () => import('@/views/admin/AdminDashboard.vue')
+        },
+        {
+          path: 'news',
+          name: 'admin-news',
+          component: () => import('@/views/admin/news/NewsManagement.vue')
+        },
+        {
+          path: 'news/create',
+          name: 'admin-news-create',
+          component: () => import('@/views/admin/news/NewsEditor.vue')
+        },
+        {
+          path: 'news/edit/:id',
+          name: 'admin-news-edit',
+          component: () => import('@/views/admin/news/NewsEditor.vue'),
+          props: true
+        }
+      ]
+    },
+    {
+      // 原有的DashboardView（如果需要保留的话）
+      path: '/old-admin',
+      name: 'old-admin',
       component: () => import('@/views/admin/DashboardView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
-      // 保留原有的 about 路由，但改为懒加载
       path: '/about',
       name: 'about',
       component: () => import('@/views/AboutView.vue'),
@@ -87,44 +138,48 @@ const router = createRouter({
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
       meta: { requiresAuth: false }
-    },
-    // 在路由配置中添加
-{
-  path: '/forums/create',
-  name: 'forum-create',
-  component: () => import('@/views/forums/CreatePostView.vue'),
-  meta: { requiresAuth: true }
-},
-{
-  path: '/forums/:id/edit',
-  name: 'forum-edit',
-  component: () => import('@/views/forums/EditPostView.vue'),
-  meta: { requiresAuth: true }
-}
+    }
   ]
 })
 
-// 路由守卫：检查认证
+// 修改路由守卫
 router.beforeEach((to, from, next) => {
-  // 这里稍后我们会从Pinia store中获取用户信息
-  const isAuthenticated = localStorage.getItem('token') !== null
+  const token = localStorage.getItem('token')
+  const adminToken = localStorage.getItem('admin_token')
   const userRole = localStorage.getItem('user_role') || 'USER'
   
-  // 如果需要认证但未登录，重定向到登录页
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login')
-  }
-  // 如果需要管理员权限但不是管理员
-  else if (to.meta.requiresAdmin && userRole !== 'ADMIN') {
-    next('/')
-  }
-  // 如果已登录但访问登录/注册页，重定向到首页
-  else if ((to.name === 'login' || to.name === 'register') && isAuthenticated) {
-    next('/')
-  }
-  else {
+  console.log('🚀 路由导航:', to.path, 'token:', !!adminToken)
+  
+  // 管理员路由特殊处理
+  if (to.path.startsWith('/admin')) {
+    console.log('🛡️ 进入管理员路由检查')
+    
+    // 如果是登录页
+    if (to.name === 'admin-login') {
+      if (adminToken) {
+        console.log('✅ 已登录，跳转到/admin')
+        next('/admin')
+      } else {
+        console.log('👤 未登录，允许访问登录页')
+        next()
+      }
+      return
+    }
+    
+    // 非登录页s
+    if (!adminToken) {
+      console.log('❌ 没有管理员token，跳转到登录页')
+      next('/admin/login')
+      return
+    }
+    
+    console.log('✅ 允许访问管理员页面')
     next()
+    return
   }
+  
+  // 其他路由逻辑...
+  next()
 })
 
 export default router
