@@ -47,15 +47,9 @@
         <!-- 右侧：用户相关 -->
         <div class="flex items-center space-x-4">
           <!-- 搜索框 -->
-          <div class="hidden md:block relative">
-            <input
-              type="text"
-              placeholder="搜索帖子、用户..."
-              class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm w-64"
-            />
-            <div class="absolute left-3 top-1/2 transform -translate-y-1/2">
-              <i class="el-icon-search text-gray-400"></i>
-            </div>
+          <!-- 搜索框（更新为组件） -->
+          <div class="hidden md:block">
+            <SearchBox />
           </div>
 
           <!-- 用户菜单 -->
@@ -65,7 +59,7 @@
               class="p-2 text-gray-600 hover:text-game-blue relative"
               title="聊天室"
             >
-              <i class="el-icon-chat-dot-round text-xl"></i>
+              <span class="text-xl">💬</span>
               <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                 {{ unreadCount }}
               </span>
@@ -76,7 +70,7 @@
               class="p-2 text-gray-600 hover:text-game-blue relative"
               title="通知"
             >
-              <i class="el-icon-bell text-xl"></i>
+              <span class="text-xl">🔔</span>
               <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
             
@@ -164,6 +158,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import SearchBox from './SearchBox.vue'  // 导入搜索组件
 
 const router = useRouter()
 const authStore = useAuthStore()

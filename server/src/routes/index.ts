@@ -6,6 +6,7 @@ import postRoutes from './posts'
 import commentRoutes from './comments'
 import likeRoutes from './likes'
 import newsCommentRouter from './newsComment'
+import searchRoutes from './search'  // 添加这行
 
 const router = Router()
 
@@ -17,5 +18,7 @@ router.use('/comments', commentRoutes)
 router.use('/likes', likeRoutes)
 
 router.use('/news', newsCommentRouter)  // 新闻评论路由，注意这里的前缀
+
+router.use('/search', searchRoutes)  // 添加这行
 
 export default router
