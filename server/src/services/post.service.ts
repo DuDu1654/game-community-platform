@@ -32,17 +32,22 @@ class PostService {
   async createPost(data: CreatePostInput) {
     console.log('创建帖子数据:', data)
     console.log('tags类型:', typeof data.tags, '值:', data.tags)
+    console.log('images数据:', data.images)  // ✅ 添加调试
     
     try {
 
       let imagesValue = ''
     if (data.images) {
       if (Array.isArray(data.images)) {
-        imagesValue = data.images.join(',')  // ✅ 数组用join
+        // ✅ 处理Base64数组
+        imagesValue = JSON.stringify(data.images)  // 改为JSON格式存储
       } else if (typeof data.images === 'string') {
-        imagesValue = data.images  // ✅ 字符串直接赋值
+        // ✅ 如果是字符串
+        imagesValue = data.images
       }
     }
+
+    console.log('处理后的imagesValue:', imagesValue)  // ✅ 调试输出
 
       const result = await prisma.post.create({
         data: {
@@ -135,8 +140,37 @@ class PostService {
       prisma.post.count({ where }),
     ])
 
+    
+// ✅ 处理images字段，如果是JSON字符串就解析
+    const processedPosts = posts.map(post => {
+      let images = []
+      if (post.images) {
+        try {
+          // 尝试解析JSON
+          const parsed = JSON.parse(post.images)
+          if (Array.isArray(parsed)) {
+            images = parsed
+          } else if (typeof parsed === 'string') {
+            images = [parsed]
+          }
+        } catch (e) {
+          // 如果不是JSON，直接使用
+          if (typeof post.images === 'string') {
+            images = [post.images]
+          }
+        }
+      }
+      
+      return {
+        ...post,
+        images  // ✅ 返回处理后的images数组
+      }
+    })
+
+
+
     return {
-      posts,
+      posts: processedPosts,
       pagination: {
         page,
         limit,
@@ -197,7 +231,29 @@ class PostService {
         },
       })
       
-      return post
+      if (!post) return null
+    
+    // ✅ 同样处理images字段
+    let images = []
+    if (post.images) {
+      try {
+        const parsed = JSON.parse(post.images)
+        if (Array.isArray(parsed)) {
+          images = parsed
+        } else if (typeof parsed === 'string') {
+          images = [parsed]
+        }
+      } catch (e) {
+        if (typeof post.images === 'string') {
+          images = [post.images]
+        }
+      }
+    }
+    
+    return {
+      ...post,
+      images  // ✅ 返回处理后的images
+    }
     } catch (error: any) {
       console.error('获取帖子失败:', error.message)
       throw error

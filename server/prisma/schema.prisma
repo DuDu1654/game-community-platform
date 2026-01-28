@@ -34,7 +34,7 @@ model Post {
   id           String    @id @default(cuid())
   title        String
   content      String
-  images       String?
+  images       String?   @db.Text
   viewCount    Int       @default(0)
   likeCount    Int       @default(0)
   commentCount Int       @default(0)
