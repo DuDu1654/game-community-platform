@@ -130,20 +130,22 @@ model Room {
   @@map("rooms")
 }
 
+// 更新 News 模型
 model News {
   id         String   @id @default(cuid())
   title      String
   content    String   @db.Text
   summary    String?
-  coverImage String?
+  coverImage String?  @db.Text  // 修改这里
+  images     Json?    // 存储编辑器中的所有图片
   source     String?
   viewCount  Int      @default(0)
   isFeatured Boolean  @default(false)
   tags       String?  @db.Text
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-   comments  NewsComment[] 
-
+  comments  NewsComment[]
+  
   @@index([createdAt])
   @@index([isFeatured])
   @@map("news")

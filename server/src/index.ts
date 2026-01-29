@@ -44,6 +44,9 @@ const server = http.createServer(app);
 socketService.initialize(server)  // 确保这行存在
 
 
+
+
+
 // 添加CORS配置
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000'], // 允许的前端地址
