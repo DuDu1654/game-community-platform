@@ -1,4 +1,5 @@
 <template>
+  <div v-if="isComponentActive" :key="componentKey">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- 头部 -->
     <div class="mb-8">
@@ -93,12 +94,14 @@
           <div
             v-for="post in postStore.posts"
             :key="post.id"
-            class="card hover:shadow-lg transition-shadow cursor-pointer"
-            @click="goToPost(post.id)"
+            class="card hover:shadow-lg transition-shadow"
           >
             <div class="flex">
               <!-- 左侧：投票/热度 -->
-              <div class="w-20 flex-shrink-0 pr-4 border-r border-gray-100">
+              <div 
+                class="w-20 flex-shrink-0 pr-4 border-r border-gray-100 cursor-pointer"
+                @click="goToPost(post.id)"
+              >
                 <div class="text-center">
                   <div class="text-2xl font-bold text-gray-900">{{ post.likeCount }}</div>
                   <div class="text-sm text-gray-500">点赞</div>
@@ -109,8 +112,11 @@
                 </div>
               </div>
 
-              <!-- 右侧：内容 -->
-              <div class="flex-1 pl-4">
+              <!-- 中间：内容区域 -->
+              <div 
+                class="flex-1 pl-4 cursor-pointer"
+                @click="goToPost(post.id)"
+              >
                 <div class="flex justify-between items-start">
                   <div>
                     <h3 class="text-xl font-semibold text-gray-900 hover:text-primary-600">
@@ -120,6 +126,7 @@
                       <router-link
                         :to="`/profile/${post.author.id}`"
                         class="flex items-center space-x-2 hover:text-primary-600"
+                        @click.stop
                       >
                         <img
                           :src="post.author.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + post.author.username"
@@ -153,6 +160,59 @@
                 <p class="mt-4 text-gray-600 line-clamp-2">
                   {{ post.content.substring(0, 150) }}{{ post.content.length > 150 ? '...' : '' }}
                 </p>
+              </div>
+
+              <!-- 右侧：图片预览（独立区域，不触发帖子跳转） -->
+              <div 
+                v-if="post.images && post.images.length > 0" 
+                class="w-32 flex-shrink-0 ml-4"
+              >
+                <!-- 单张图片展示 -->
+                <div v-if="post.images.length === 1" class="w-full h-24 rounded-lg overflow-hidden">
+                  <div
+                    class="w-full h-full bg-gray-100 rounded-lg cursor-pointer"
+                    @click="() => showImagePreview(post.images?.[0])"
+                  >
+                    <img
+                      :src="post.images?.[0] || ''"
+                      :alt="post.title"
+                      class="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                    />
+                  </div>
+                </div>
+                
+                <!-- 多张图片展示 -->
+                <div v-else class="grid grid-cols-2 gap-1">
+                  <div
+                    v-for="(image, index) in post.images.slice(0, 4)"
+                    :key="index"
+                    class="relative"
+                  >
+                    <div 
+                      class="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
+                      @click="showImagePreview(image)"
+                    >
+                      <img
+                        :src="image"
+                        :alt="`${post.title} - 图片 ${index + 1}`"
+                        class="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                      />
+                    </div>
+                    <!-- 如果有多于4张图片，显示数量 -->
+                    <div
+                      v-if="index === 3 && post.images.length > 4"
+                      class="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded-lg cursor-pointer"
+                      @click="showAllImages(post.images)"
+                    >
+                      <span class="text-white text-xs font-semibold">+{{ post.images.length - 4 }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 图片数量提示 -->
+                <div v-if="post.images.length > 0" class="mt-1 text-xs text-gray-500 text-center">
+                  {{ post.images.length }}张图片
+                </div>
               </div>
             </div>
           </div>
@@ -269,22 +329,241 @@
       </div>
     </div>
   </div>
+
+  <!-- 图片预览模态框 -->
+  <div
+     v-show="previewVisible"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
+  @click="closePreview"
+  style="display: none;"
+  >
+    <!-- 关闭按钮 -->
+    <button
+      @click="closePreview"
+      class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300 transition-colors z-10"
+    >
+      <i class="el-icon-close"></i>
+    </button>
+    
+    <!-- 上一张按钮 -->
+    <button
+      v-if="previewImageList.length > 1"
+      @click.stop="switchPreviewImage('prev')"
+      class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all z-10"
+    >
+      <i class="el-icon-arrow-left text-2xl"></i>
+    </button>
+    
+    <!-- 图片显示区域 -->
+    <div class="max-w-4xl max-h-4/5" @click.stop>
+      <img
+        :src="previewImageUrl"
+        :alt="`预览图片 ${previewIndex + 1}`"
+        class="max-w-full max-h-full object-contain rounded-lg"
+      />
+    </div>
+    
+    <!-- 下一张按钮 -->
+    <button
+      v-if="previewImageList.length > 1"
+      @click.stop="switchPreviewImage('next')"
+      class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all z-10"
+    >
+      <i class="el-icon-arrow-right text-2xl"></i>
+    </button>
+    
+    <!-- 图片索引指示器 -->
+    <div
+      v-if="previewImageList.length > 1"
+      class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10"
+    >
+      <div
+        v-for="(_, index) in previewImageList"
+        :key="index"
+        :class="[
+          'w-3 h-3 rounded-full',
+          previewIndex === index
+            ? 'bg-white'
+            : 'bg-white bg-opacity-50'
+        ]"
+      ></div>
+    </div>
+    
+    <!-- 下载按钮（可选） -->
+    <a
+      :href="previewImageUrl"
+      download
+      @click.stop
+      class="absolute bottom-4 right-4 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors z-10"
+    >
+      <i class="el-icon-download mr-2"></i>下载
+    </a>
+  </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
+import { useRouter, onBeforeRouteUpdate, onBeforeRouteLeave, useRoute } from 'vue-router'
 import { usePostStore } from '@/stores/post'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
 const router = useRouter()
+const route = useRoute()
 const postStore = usePostStore()
+
+// 添加组件激活状态控制
+const isComponentActive = ref(true)
+const componentKey = ref(0)
 
 // 状态
 const activeTab = ref('latest')
 const searchQuery = ref('')
 const selectedTag = ref('')
+
+// 图片预览相关状态
+const previewVisible = ref(false)
+const previewImageUrl = ref('')
+const previewImageList = ref<string[]>([])
+const previewIndex = ref(0)
+
+// 强制重新渲染组件
+const forceRerender = () => {
+  isComponentActive.value = false
+  nextTick(() => {
+    isComponentActive.value = true
+    componentKey.value++
+  })
+}
+
+// 路由离开时清理
+onBeforeRouteLeave((to, from, next) => {
+  // 确保关闭所有模态框
+  closePreview()
+  // 重置所有状态
+  resetComponentState()
+  next()
+})
+
+// 路由更新时（同一页面内参数变化）
+onBeforeRouteUpdate((to, from, next) => {
+  // 关闭模态框
+  closePreview()
+  // 重新加载数据
+  loadPosts()
+  next()
+})
+
+// 监听路由变化
+watch(() => route.fullPath, (newPath, oldPath) => {
+  // 如果是从其他页面进入此页面
+  if (!oldPath.includes('/forums') && newPath.includes('/forums')) {
+    // 重置组件状态
+    resetComponentState()
+    // 重新加载数据
+    loadPosts()
+  }
+  // 离开此页面时
+  if (oldPath.includes('/forums') && !newPath.includes('/forums')) {
+    closePreview()
+  }
+})
+
+// 重置组件状态
+const resetComponentState = () => {
+  activeTab.value = 'latest'
+  searchQuery.value = ''
+  selectedTag.value = ''
+  closePreview()
+  
+  // 重置store状态
+  postStore.posts = []
+  postStore.pagination = {
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 1,
+    hasNext: false,
+    hasPrev: false
+  }
+  postStore.isLoading = false
+  postStore.error = null
+}
+
+// ESC键关闭预览
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && previewVisible.value) {
+    closePreview()
+  }
+}
+
+// 显示单张图片预览
+const showImagePreview = (imageUrl: string | undefined) => {
+  if (!imageUrl) return
+  
+  // 防止事件冒泡
+  event?.stopPropagation()
+  event?.preventDefault()
+  
+  previewImageUrl.value = imageUrl
+  previewImageList.value = [imageUrl]
+  previewIndex.value = 0
+  previewVisible.value = true
+  
+  // 添加ESC键监听
+  document.addEventListener('keydown', handleKeydown)
+}
+
+// 显示多张图片预览
+const showAllImages = (images: string[]) => {
+  if (!images || images.length === 0) return
+  
+  // 防止事件冒泡
+  event?.stopPropagation()
+  event?.preventDefault()
+  
+  previewImageList.value = images
+  previewImageUrl.value = images[0] || ''
+  previewIndex.value = 0
+  previewVisible.value = true
+  
+  // 添加ESC键监听
+  document.addEventListener('keydown', handleKeydown)
+}
+
+// 关闭预览
+const closePreview = () => {
+  previewVisible.value = false
+  previewImageUrl.value = ''
+  previewImageList.value = []
+  previewIndex.value = 0
+  
+  // 移除ESC键监听
+  document.removeEventListener('keydown', handleKeydown)
+  
+  // 强制重新渲染，确保DOM更新
+  forceRerender()
+}
+
+// 切换预览图片
+const switchPreviewImage = (direction: 'prev' | 'next') => {
+  if (previewImageList.value.length <= 1) return
+  
+  if (direction === 'prev') {
+    previewIndex.value = previewIndex.value > 0 
+      ? previewIndex.value - 1 
+      : previewImageList.value.length - 1
+  } else {
+    previewIndex.value = previewIndex.value < previewImageList.value.length - 1
+      ? previewIndex.value + 1
+      : 0
+  }
+  const newImage = previewImageList.value[previewIndex.value]
+  if (newImage) {
+    previewImageUrl.value = newImage
+  }
+}
 
 // 标签页
 const tabs = [
@@ -293,10 +572,10 @@ const tabs = [
   { id: 'trending', name: '趋势' },
 ]
 
-// 热门标签（从store获取）
+// 热门标签
 const popularTags = ref<Array<{ tag: string; count: number }>>([])
 
-// 论坛统计（模拟数据）
+// 论坛统计
 const forumStats = ref({
   totalPosts: 1234,
   todayPosts: 42,
@@ -308,12 +587,11 @@ const forumStats = ref({
 const visiblePages = computed(() => {
   const current = postStore.pagination.page
   const total = postStore.pagination.pages
-  const range = 2 // 当前页码前后显示几个页码
+  const range = 2
   
   let start = Math.max(1, current - range)
   let end = Math.min(total, current + range)
   
-  // 确保显示足够的页码数量
   if (end - start < range * 2) {
     if (current <= range) {
       end = Math.min(total, range * 2 + 1)
@@ -339,28 +617,36 @@ const formatTime = (time: string) => {
 
 // 加载帖子
 const loadPosts = async () => {
-  const params: any = {
-    page: postStore.pagination.page,
-    limit: postStore.pagination.limit,
-    orderBy: activeTab.value,
+  try {
+    const params: any = {
+      page: postStore.pagination.page,
+      limit: postStore.pagination.limit,
+      orderBy: activeTab.value,
+    }
+    
+    if (selectedTag.value) {
+      params.tag = selectedTag.value
+    }
+    
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+    
+    await postStore.fetchPosts(params)
+  } catch (error) {
+    console.error('加载帖子失败:', error)
   }
-  
-  if (selectedTag.value) {
-    params.tag = selectedTag.value
-  }
-  
-  if (searchQuery.value) {
-    params.search = searchQuery.value
-  }
-  
-  await postStore.fetchPosts(params)
 }
 
 // 加载热门标签
 const loadPopularTags = async () => {
-  const result = await postStore.fetchPopularTags(10)
-  if (result.success) {
-    popularTags.value = result.tags
+  try {
+    const result = await postStore.fetchPopularTags(10)
+    if (result.success) {
+      popularTags.value = result.tags
+    }
+  } catch (error) {
+    console.error('加载标签失败:', error)
   }
 }
 
@@ -392,6 +678,8 @@ const handleTagChange = () => {
 
 // 跳转到帖子详情
 const goToPost = (postId: string) => {
+  // 确保关闭所有模态框
+  closePreview()
   router.push(`/forums/${postId}`)
 }
 
@@ -401,20 +689,52 @@ watch(activeTab, () => {
   loadPosts()
 })
 
-// 初始化加载
+// 组件挂载
 onMounted(async () => {
+  console.log('ForumList 组件已挂载')
   await Promise.all([
     loadPosts(),
     loadPopularTags(),
   ])
 })
+
+// 组件卸载
+onUnmounted(() => {
+  console.log('ForumList 组件已卸载')
+  closePreview()
+})
 </script>
 
 <style scoped>
+/* 保持原有样式不变 */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* 图片预览动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 图片悬停效果 */
+.hover-scale:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .post-image-container {
+    width: 80px;
+  }
 }
 </style>
