@@ -22,11 +22,24 @@ import userRoutes from './routes/user'  // 确保导入user路由
 import socketService from './services/socket.service'
 // 在现有代码中找到路由注册的地方，添加：
 import adminRouter from './routes/admin'
+import bodyParser from 'body-parser';
 
 // 加载环境变量
 dotenv.config();
 
 const app = express();
+
+
+// 🔥 关键修改：增加请求体大小限制
+app.use(bodyParser.json({ limit: '10mb' })); // JSON 请求体限制
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' })); // URL编码请求体限制
+
+// 启用CORS
+app.use(cors({
+  origin: 'http://localhost:5173', // 你的前端地址
+  credentials: true,
+}));
+
 const PORT = process.env.PORT || 3000;
 
 

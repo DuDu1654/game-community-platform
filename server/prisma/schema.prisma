@@ -134,7 +134,7 @@ model Room {
 model News {
   id         String   @id @default(cuid())
   title      String
-  content    String   @db.Text
+  content    String   @db.LongText 
   summary    String?
   coverImage String?  @db.Text  // 修改这里
   images     Json?    // 存储编辑器中的所有图片
